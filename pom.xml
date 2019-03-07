@@ -37,6 +37,7 @@
         <module>blockchain-btc</module>
         <module>blockchain-tron</module>
         <module>mywish-airdrop</module>
+        <module>tronish-airdrop</module>
     </modules>
 
     <properties>
