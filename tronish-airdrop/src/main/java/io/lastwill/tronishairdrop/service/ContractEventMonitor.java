@@ -1,7 +1,6 @@
 package io.lastwill.tronishairdrop.service;
 
 import io.lastwill.eventscan.model.NetworkType;
-import io.lastwill.eventscan.services.TransactionProvider;
 import io.lastwill.tronishairdrop.model.events.ContractEventsEvent;
 import io.mywish.blockchain.WrapperTransaction;
 import io.mywish.blockchain.WrapperTransactionReceipt;
@@ -13,8 +12,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -24,30 +25,28 @@ public class ContractEventMonitor {
     @Autowired
     private TransactionProvider transactionProvider;
 
-    @Value("${eos-snapshot-block")
+    @Value("${eos-snapshot-block}")
     private long eosSnapshotBlock;
     @Value("${eth-snapshot-block}")
     private long ethSnapshotBlock;
     @Value("${tron-snapshot-block}")
     private long tronSnapshotBlock;
 
-    private Map<NetworkType, Long> snapshotBlocks = new HashMap<>(3);
+    private final Set<NetworkType> snapshotNetworks = new HashSet<NetworkType>() {{
+        add(NetworkType.EOS_MAINNET);
+        add(NetworkType.ETHEREUM_MAINNET);
+        add(NetworkType.TRON_MAINNET);
+    }};
 
-    @PostConstruct
-    protected void init() {
-        snapshotBlocks.put(NetworkType.EOS_MAINNET, eosSnapshotBlock);
-        snapshotBlocks.put(NetworkType.ETHEREUM_MAINNET, ethSnapshotBlock);
-        snapshotBlocks.put(NetworkType.TRON_MAINNET, tronSnapshotBlock);
-    }
     @EventListener
     public void onNewBlock(final NewBlockEvent event) {
-        // todo: restrictions after snapshot block number
         Set<String> addresses = event.getTransactionsByAddress().keySet();
         if (addresses.isEmpty()) {
             return;
         }
 
-        if (!snapshotBlocks.keySet().contains(event.getNetworkType())) {
+
+        if (!snapshotNetworks.contains(event.getNetworkType())) {
             return;
         }
 
@@ -58,11 +57,11 @@ public class ContractEventMonitor {
                 .map(transaction -> getReceiptOrNull(event.getNetworkType(), transaction))
                 .filter(Objects::nonNull)
                 .filter(WrapperTransactionReceipt::isSuccess)
-                .map(receipt -> new ContractEventsEvent(event.getNetworkType(), receipt))
+                .map(receipt -> new ContractEventsEvent(event.getNetworkType(), receipt, event.getBlock()))
                 .forEach(eventPublisher::publish);
     }
 
-    public WrapperTransactionReceipt getReceiptOrNull(NetworkType networkType, WrapperTransaction transaction) {
+    private WrapperTransactionReceipt getReceiptOrNull(NetworkType networkType, WrapperTransaction transaction) {
         WrapperTransactionReceipt receipt = null;
         try {
             receipt = transactionProvider.getTransactionReceipt(networkType, transaction);

@@ -13,6 +13,7 @@ import io.mywish.blockchain.ContractEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 @Component
+@Profile("transfers-fetcher")
 public class TransfersHandler {
     @Value("${eosish-account}")
     private String eosishAccount;
@@ -46,7 +48,8 @@ public class TransfersHandler {
                 .map(event -> (EosTransferEvent) event)
                 .filter(event -> eosishAccount.equalsIgnoreCase(event.getAddress()))
                 .filter(event -> eosishTokenSymbol.equalsIgnoreCase(event.getSymbol()))
-//                .filter(event -> eosSnapshotEntryRepository.existsByEosAddresses(event.getFrom(), event.getTo()))
+                .filter(event -> eosSnapshotEntryRepository.existsByEosAddress(event.getFrom())
+                        || eosSnapshotEntryRepository.existsByEosAddress(event.getTo()))
                 .map(event -> new TransferEntry(
                         null,
                         event.getFrom(),
@@ -69,7 +72,8 @@ public class TransfersHandler {
                 .filter(event -> event instanceof TransferEvent)
                 .map(event -> (TransferEvent) event)
                 .filter(event -> wishAddress.equalsIgnoreCase(event.getAddress()))
-//                .filter(event -> ethSnapshotEntryRepository.existsByEthAddresses(event.getFrom(), event.getTo()))
+                .filter(event -> ethSnapshotEntryRepository.existsByEthAddress(event.getFrom())
+                        || ethSnapshotEntryRepository.existsByEthAddress(event.getTo()))
                 .map(event -> new TransferEntry(
                         null,
                         event.getFrom(),

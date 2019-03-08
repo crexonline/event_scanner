@@ -1,4 +1,4 @@
-package io.lastwill.tronishairdrop.model.domain.register;
+package io.lastwill.tronishairdrop.model.domain.snapshot;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;

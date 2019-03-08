@@ -1,12 +1,12 @@
 package io.lastwill.tronishairdrop.service;
 
+import io.lastwill.tronishairdrop.model.domain.snapshot.EosSnapshotEntry;
+import io.lastwill.tronishairdrop.model.domain.snapshot.EthSnapshotEntry;
+import io.lastwill.tronishairdrop.model.events.ContractEventsEvent;
 import io.lastwill.tronishairdrop.model.contractevents.EosRegisterEvent;
 import io.lastwill.tronishairdrop.model.contractevents.EthRegisterEvent;
 import io.lastwill.tronishairdrop.model.contractevents.TronRegisterEvent;
-import io.lastwill.tronishairdrop.model.domain.register.EosSnapshotEntry;
-import io.lastwill.tronishairdrop.model.domain.register.EthSnapshotEntry;
-import io.lastwill.tronishairdrop.model.domain.register.TronSnapshotEntry;
-import io.lastwill.tronishairdrop.model.events.ContractEventsEvent;
+import io.lastwill.tronishairdrop.model.domain.snapshot.TronSnapshotEntry;
 import io.lastwill.tronishairdrop.repositories.EosSnapshotEntryRepository;
 import io.lastwill.tronishairdrop.repositories.EthSnapshotEntryRepository;
 import io.lastwill.tronishairdrop.repositories.TronSnapshotEntryRepository;
@@ -14,6 +14,7 @@ import io.mywish.blockchain.ContractEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,7 @@ import java.util.Objects;
 
 @Slf4j
 @Component
+@Profile("reg-fetcher")
 public class RegisterHandler {
     @Value("${eos-register-address}")
     private String eosRegisterAddress;
