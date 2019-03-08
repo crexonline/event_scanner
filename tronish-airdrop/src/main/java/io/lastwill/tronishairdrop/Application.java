@@ -118,19 +118,10 @@ public class Application {
     @Configuration
     public class RegFetcherConfig {
         @Bean
-        public CommandLineRunner clearDatabase() {
-            return args -> {
-                eosSnapshotEntryRepository.deleteAll();
-                ethSnapshotEntryRepository.deleteAll();
-                tronSnapshotEntryRepository.deleteAll();
-            };
-        }
-
-        @Bean
         public EosSnapshotScanner eosSnapshotScanner(
                 EosNetwork eosNetwork,
                 @Value("${etherscanner.start-block-dir}") String startBlockDir,
-                @Value("${eos-reg-contract-created-block}") long startBlock
+                @Value("${eos-reg-contract-created-block:#{null}}") long startBlock
         ) {
             return new EosSnapshotScanner(
                     eosNetwork,
@@ -145,7 +136,7 @@ public class Application {
         public EthSnapshotScanner ethSnapshotScanner(
                 Web3Network ethNetwork,
                 @Value("${etherscanner.start-block-dir}") String startBlockDir,
-                @Value("${eth-reg-contract-created-block}") long startBlock
+                @Value("${eth-reg-contract-created-block:#{null}}") long startBlock
         ) {
             return new EthSnapshotScanner(
                     ethNetwork,
@@ -160,7 +151,7 @@ public class Application {
         public TronSnapshotScanner tronSnapshotScanner(
                 TronNetwork tronNetwork,
                 @Value("${etherscanner.start-block-dir}") String startBlockDir,
-                @Value("${tron-reg-contract-created-block}") long startBlock
+                @Value("${tron-reg-contract-created-block:#{null}}") long startBlock
         ) {
             return new TronSnapshotScanner(
                     tronNetwork,
@@ -184,7 +175,7 @@ public class Application {
         public EosSnapshotScanner eosSnapshotScanner(
                 EosNetwork eosNetwork,
                 @Value("${etherscanner.start-block-dir}") String startBlockDir,
-                @Value("${eosish-contract-created-block}") long startBlock
+                @Value("${eosish-contract-created-block:#{null}}") long startBlock
         ) {
             return new EosSnapshotScanner(
                     eosNetwork,
@@ -199,7 +190,7 @@ public class Application {
         public EthSnapshotScanner ethSnapshotScanner(
                 Web3Network ethNetwork,
                 @Value("${etherscanner.start-block-dir}") String startBlockDir,
-                @Value("${wish-contract-created-block}") long startBlock
+                @Value("${wish-contract-created-block:#{null}}") long startBlock
         ) {
             return new EthSnapshotScanner(
                     ethNetwork,
@@ -213,7 +204,7 @@ public class Application {
         @Bean
         public TronSnapshotScanner tronSnapshotScanner(
                 TronNetwork tronNetwork,
-                @Value("${etherscanner.start-block-dir}") String startBlockDir
+                @Value("${etherscanner.start-block-dir:#{null}}") String startBlockDir
         ) {
             return new TronSnapshotScanner(
                     tronNetwork,
