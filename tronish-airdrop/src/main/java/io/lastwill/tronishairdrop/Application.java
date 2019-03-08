@@ -5,15 +5,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.lastwill.eventscan.model.NetworkType;
 import io.lastwill.tronishairdrop.repositories.EosSnapshotEntryRepository;
-import io.lastwill.tronishairdrop.repositories.TransferEntryRepository;
-import io.mywish.eos.blockchain.EosBCModule;
 import io.lastwill.tronishairdrop.repositories.EthSnapshotEntryRepository;
+import io.lastwill.tronishairdrop.repositories.TransferEntryRepository;
 import io.lastwill.tronishairdrop.repositories.TronSnapshotEntryRepository;
 import io.lastwill.tronishairdrop.service.EosSnapshotScanner;
+import io.lastwill.tronishairdrop.service.EthSnapshotScanner;
+import io.lastwill.tronishairdrop.service.TronSnapshotScanner;
+import io.mywish.eos.blockchain.EosBCModule;
 import io.mywish.eos.blockchain.services.EosNetwork;
 import io.mywish.eoscli4j.service.EosClientImpl;
-import io.mywish.scanner.services.LastBlockMemoryPersister;
+import io.mywish.scanner.services.LastBlockFilePersister;
+import io.mywish.tron.blockchain.TronBCModule;
+import io.mywish.tron.blockchain.services.TronNetwork;
+import io.mywish.troncli4j.service.TronClientImpl;
 import io.mywish.web3.blockchain.Web3BCModule;
+import io.mywish.web3.blockchain.parity.Web3jEx;
+import io.mywish.web3.blockchain.service.Web3Network;
+import okhttp3.OkHttpClient;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -23,20 +31,23 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.web3j.protocol.http.HttpService;
 
 import java.net.URI;
+import java.util.concurrent.TimeUnit;
 
-@SpringBootApplication(exclude = {EosBCModule.class, Web3BCModule.class})
-@ComponentScan({"io.mywish.scanner.services", "io.mywish.eos.blockchain.services"})
-//@Import({
-//        ScannerModule.class,
-//        EventModule.class
-//})
-//@EntityScan(basePackageClasses = {Application.class, Jsr310JpaConverters.class}, basePackages = "io.lastwill.eventscan")
-//@EnableScheduling
-//@EnableJpaRepositories(basePackageClasses = {NetworkRepository.class, LastBlockRepository.class})
-//@EnableJpaRepositories("io.lastwill.eventscan")
+@SpringBootApplication(exclude = {EosBCModule.class, Web3BCModule.class, TronBCModule.class})
+@ComponentScan({
+        "io.lastwill.tronishairdrop",
+        "io.mywish.scanner.services",
+        "io.mywish.eos.blockchain.services",
+        "io.mywish.web3.blockchain.service",
+        "io.mywish.tron.blockchain.services",
+})
 public class Application {
     public static void main(String[] args) {
         new SpringApplicationBuilder()
@@ -49,6 +60,12 @@ public class Application {
 
     @Value("${eos-snapshot-block}")
     private long eosSnapshotBlock;
+
+    @Value("${eth-snapshot-block}")
+    private long ethSnapshotBlock;
+
+    @Value("${tron-snapshot-block}")
+    private long tronSnapshotBlock;
 
     @Autowired
     private EosSnapshotEntryRepository eosSnapshotEntryRepository;
@@ -72,6 +89,31 @@ public class Application {
         );
     }
 
+    @Bean(NetworkType.ETHEREUM_MAINNET_VALUE)
+    public Web3Network ethNetwork(
+            @Value("${io.lastwill.eventscan.web3-url.ethereum}") String web3Url,
+            OkHttpClient httpClient
+    ) {
+        return new Web3Network(
+                NetworkType.ETHEREUM_MAINNET,
+                Web3jEx.build(new HttpService(web3Url, httpClient, false)),
+                0
+        );
+    }
+
+    @Bean(NetworkType.TRON_MAINNET_VALUE)
+    public TronNetwork tronNetwork(
+            @Value("${etherscanner.tron.full-rpc-url.mainnet}") URI fullNode,
+            @Value("${etherscanner.tron.event-rpc-url.mainnet}") URI eventNode,
+            CloseableHttpClient httpClient,
+            ObjectMapper mapper
+    ) throws Exception {
+        return new TronNetwork(
+                NetworkType.TRON_MAINNET,
+                new TronClientImpl(httpClient, fullNode, eventNode, mapper)
+        );
+    }
+
     @Profile("reg-fetcher")
     @Configuration
     public class RegFetcherConfig {
@@ -87,18 +129,47 @@ public class Application {
         @Bean
         public EosSnapshotScanner eosSnapshotScanner(
                 EosNetwork eosNetwork,
+                @Value("${etherscanner.start-block-dir}") String startBlockDir,
                 @Value("${eos-reg-contract-created-block}") long startBlock
         ) {
             return new EosSnapshotScanner(
                     eosNetwork,
-                    new LastBlockMemoryPersister(startBlock),
+                    new LastBlockFilePersister(NetworkType.EOS_MAINNET, startBlockDir, startBlock),
                     0,
                     0,
                     eosSnapshotBlock
             );
         }
 
-        // todo: eth, tron scanners
+        @Bean
+        public EthSnapshotScanner ethSnapshotScanner(
+                Web3Network ethNetwork,
+                @Value("${etherscanner.start-block-dir}") String startBlockDir,
+                @Value("${eth-reg-contract-created-block}") long startBlock
+        ) {
+            return new EthSnapshotScanner(
+                    ethNetwork,
+                    new LastBlockFilePersister(NetworkType.ETHEREUM_MAINNET, startBlockDir, startBlock),
+                    0,
+                    0,
+                    ethSnapshotBlock
+            );
+        }
+
+        @Bean
+        public TronSnapshotScanner tronSnapshotScanner(
+                TronNetwork tronNetwork,
+                @Value("${etherscanner.start-block-dir}") String startBlockDir,
+                @Value("${tron-reg-contract-created-block}") long startBlock
+        ) {
+            return new TronSnapshotScanner(
+                    tronNetwork,
+                    new LastBlockFilePersister(NetworkType.TRON_MAINNET, startBlockDir, startBlock),
+                    0,
+                    0,
+                    tronSnapshotBlock
+            );
+        }
     }
 
     @Profile("transfers-fetcher")
@@ -112,18 +183,46 @@ public class Application {
         @Bean
         public EosSnapshotScanner eosSnapshotScanner(
                 EosNetwork eosNetwork,
+                @Value("${etherscanner.start-block-dir}") String startBlockDir,
                 @Value("${eosish-contract-created-block}") long startBlock
         ) {
             return new EosSnapshotScanner(
                     eosNetwork,
-                    new LastBlockMemoryPersister(startBlock),
+                    new LastBlockFilePersister(NetworkType.EOS_MAINNET, startBlockDir, startBlock),
                     0,
                     0,
                     eosSnapshotBlock
             );
         }
 
-        // todo: eth, tron scanners
+        @Bean
+        public EthSnapshotScanner ethSnapshotScanner(
+                Web3Network ethNetwork,
+                @Value("${etherscanner.start-block-dir}") String startBlockDir,
+                @Value("${wish-contract-created-block}") long startBlock
+        ) {
+            return new EthSnapshotScanner(
+                    ethNetwork,
+                    new LastBlockFilePersister(NetworkType.ETHEREUM_MAINNET, startBlockDir, startBlock),
+                    0,
+                    0,
+                    ethSnapshotBlock
+            );
+        }
+
+        @Bean
+        public TronSnapshotScanner tronSnapshotScanner(
+                TronNetwork tronNetwork,
+                @Value("${etherscanner.start-block-dir}") String startBlockDir
+        ) {
+            return new TronSnapshotScanner(
+                    tronNetwork,
+                    new LastBlockFilePersister(NetworkType.TRON_MAINNET, startBlockDir, 1L),
+                    0,
+                    0,
+                    tronSnapshotBlock
+            );
+        }
     }
 
     @Bean(destroyMethod = "close")
@@ -148,17 +247,17 @@ public class Application {
                 .build();
     }
 
-    //    @Bean
-//    public OkHttpClient okHttpClient(
-//            @Value("${io.lastwill.eventscan.backend.socket-timeout}") long socketTimeout,
-//            @Value("${io.lastwill.eventscan.backend.connection-timeout}") long connectionTimeout
-//    ) {
-//        return new OkHttpClient.Builder()
-//                .writeTimeout(socketTimeout, TimeUnit.MILLISECONDS)
-//                .readTimeout(socketTimeout, TimeUnit.MILLISECONDS)
-//                .connectTimeout(connectionTimeout, TimeUnit.MILLISECONDS)
-//                .build();
-//    }
+    @Bean
+    public OkHttpClient okHttpClient(
+            @Value("${io.lastwill.eventscan.backend.socket-timeout}") long socketTimeout,
+            @Value("${io.lastwill.eventscan.backend.connection-timeout}") long connectionTimeout
+    ) {
+        return new OkHttpClient.Builder()
+                .writeTimeout(socketTimeout, TimeUnit.MILLISECONDS)
+                .readTimeout(socketTimeout, TimeUnit.MILLISECONDS)
+                .connectTimeout(connectionTimeout, TimeUnit.MILLISECONDS)
+                .build();
+    }
 
     @Bean
     public ObjectMapper objectMapper() {

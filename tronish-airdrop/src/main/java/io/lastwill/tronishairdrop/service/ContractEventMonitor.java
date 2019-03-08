@@ -54,9 +54,11 @@ public class ContractEventMonitor {
                 .values()
                 .stream()
                 .flatMap(Collection::stream)
+                .distinct()
                 .map(transaction -> getReceiptOrNull(event.getNetworkType(), transaction))
                 .filter(Objects::nonNull)
                 .filter(WrapperTransactionReceipt::isSuccess)
+                .filter(receipt -> !receipt.getLogs().isEmpty())
                 .map(receipt -> new ContractEventsEvent(event.getNetworkType(), receipt, event.getBlock()))
                 .forEach(eventPublisher::publish);
     }
