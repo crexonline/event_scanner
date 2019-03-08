@@ -43,7 +43,7 @@ public class WrapperLogWeb3Service {
 
         Web3ContractEventBuilder<?> builder = buildersBySignature.get(signature);
         if (builder == null) {
-            log.warn("There is not builder for ETH event with signature {}.", signature);
+//            log.warn("There is not builder for ETH event with signature {}.", signature);
             return null;
         }
         Web3ContractEventDefinition eventDefinition = builder.getDefinition();
